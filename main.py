@@ -1,5 +1,3 @@
-# pip install python-chess
-
 # system packages
 import chess
 
