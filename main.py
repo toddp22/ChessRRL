@@ -7,7 +7,7 @@ import chess
 import board_generators
 import board_display as display
 import minimax_agent as black
-import random_agent as white
+import greedy_agent as white
 
 board = board_generators.normal_board()
 
