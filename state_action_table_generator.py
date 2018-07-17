@@ -75,5 +75,6 @@ for i in range(64):
 
       states[fen_string] = generate_action_array(len(ACTIONS))
 
-for state in states:
-  print(str(state)+ " " + str(states[state]))
+import pickle
+f = open('randomized_state_action_table.bin', 'wb')
+pickle.dump(states, f)
