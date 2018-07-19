@@ -1,7 +1,7 @@
 import chess
 from random import shuffle
 
-import evaluate_board
+from ..board_operations import evaluate
 
 def get_move(board, depth=3):
   best_move = None
@@ -24,9 +24,9 @@ def get_move(board, depth=3):
 def minimax(board, color, depth, alpha, beta, is_current_player=False):
   if depth == 0:
     if color == chess.WHITE:
-      return evaluate_board.evaluate(board)
+      return evaluate.simple(board)
     else:
-      return -evaluate_board.evaluate(board)
+      return -evaluate.simple(board)
 
   moves = list(board.generate_legal_moves())
   shuffle(moves)

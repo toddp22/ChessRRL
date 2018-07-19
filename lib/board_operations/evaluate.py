@@ -9,7 +9,7 @@ values = {
   'K': 900,'k': -900
 }
 
-def evaluate(board):
+def simple(board):
   score = 0
 
   for i in range(64):

@@ -71,7 +71,7 @@ for i in range(64):
       board.set_piece_at(j, pieces[1])
       board.set_piece_at(k, pieces[2])
 
-      fen_string = board.fen().split(" ")[0]
+      fen_string = ''.join(board.fen().split(" ")[0:2])
 
       states[fen_string] = generate_action_array(len(ACTIONS))
 

@@ -2,20 +2,20 @@
 import chess
 
 # custom modules
-import board_generators
-import board_display as display
-import minimax_agent as black
-import greedy_agent as white
+from lib.board_operations import generators
+from lib.board_operations import serializers
+from lib.agents import minimax_agent as black
+from lib.agents import greedy_agent as white
 
-board = board_generators.normal_board()
+board = generators.normal_board()
 
-display.unicode(board)
+print(serializers.unicode(board))
 while (not board.is_game_over()):
   if board.turn == chess.WHITE:
     move = white.get_move(board.copy())
   else:
     move = black.get_move(board.copy())
   board.push(move)
-  display.unicode(board)
+  print(serializers.unicode(board))
 
 print(board.result())
