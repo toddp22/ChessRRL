@@ -18,4 +18,3 @@ def random_krk_board():
 
     board.set_piece_at(chess.SQUARES_180[placement], piece)
   return board
-
