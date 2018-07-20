@@ -67,7 +67,7 @@ def board_key(b):
   )
 
 def state_action_table():
-  return np.random.uniform(low=-0.05, high=0.05, size=(499_968,44))
+  return np.random.uniform(low=-0.05, high=0.05, size=(524_544, 44))
 
 def is_duplicate_placement(i,j,k):
   if i == j: return True
@@ -82,13 +82,51 @@ def pieces():
     chess.Piece.from_symbol('k')
   ]
 
+def record_state(states, board, count):
+  board.turn = chess.WHITE
+  states[board_key(board)] = count
+  count += 1
+  board.turn = chess.BLACK
+  states[board_key(board)] = count
+  count += 1
+  return count
+
 def state_map():
   states = {}
   count = 0
   board = chess.Board(None)
   
   for i in range(64):
+    board.set_piece_at(i, pieces()[0])
+    count = record_state(states, board, count)
+    board.clear_board()
+
+    board.set_piece_at(i, pieces()[1])
+    count = record_state(states, board, count)
+    board.clear_board()
+
+    board.set_piece_at(i, pieces()[2])
+    count = record_state(states, board, count)
+    board.clear_board()
+
     for j in range(64):
+      if is_duplicate_placement(i,j,None): continue
+
+      board.set_piece_at(i, pieces()[0])
+      board.set_piece_at(j, pieces()[1])
+      count = record_state(states, board, count)
+      board.clear_board()
+
+      board.set_piece_at(i, pieces()[0])
+      board.set_piece_at(j, pieces()[2])
+      count = record_state(states, board, count)
+      board.clear_board()
+
+      board.set_piece_at(i, pieces()[1])
+      board.set_piece_at(j, pieces()[2])
+      count = record_state(states, board, count)
+      board.clear_board()
+
       for k in range(64):
         if is_duplicate_placement(i,j,k): continue
   
@@ -96,13 +134,8 @@ def state_map():
         board.set_piece_at(j, pieces()[1])
         board.set_piece_at(k, pieces()[2])
   
-        board.turn = chess.WHITE
-        states[board_key(board)] = count
-        board.turn = chess.BLACK
-        states[board_key(board)] = count
-
+        count = record_state(states, board, count)
         board.clear_board()
-        count += 1
   return states
 
 def serialize(name, data):
