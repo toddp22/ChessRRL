@@ -1,7 +1,18 @@
 import chess
 import random
+import pickle
+import numpy as np
 
 ACTIONS = (
+  (chess.Piece.from_symbol('k'), 1),
+  (chess.Piece.from_symbol('k'), -1),
+  (chess.Piece.from_symbol('k'), 8),
+  (chess.Piece.from_symbol('k'), -8),
+  (chess.Piece.from_symbol('k'), 7),
+  (chess.Piece.from_symbol('k'), -7),
+  (chess.Piece.from_symbol('k'), 9),
+  (chess.Piece.from_symbol('k'), -9),
+
   (chess.Piece.from_symbol('K'), 1),
   (chess.Piece.from_symbol('K'), -1),
   (chess.Piece.from_symbol('K'), 8),
@@ -41,10 +52,22 @@ ACTIONS = (
   (chess.Piece.from_symbol('R'), -56)
 )
 
-secure_random = random.SystemRandom()
+def board_key(b):
+  return (
+    b.bishops,
+    b.kings,
+    b.knights,
+    b.pawns,
+    b.queens,
+    b.rooks,
+    b.occupied,
+    b.occupied_co[chess.BLACK],
+    b.occupied_co[chess.WHITE],
+    int(b.turn)
+  )
 
-def generate_action_array(number_of_states):
-  return [secure_random.uniform(-0.05, 0.05) for _ in range(number_of_states)]
+def state_action_table():
+  return np.random.uniform(low=-0.05, high=0.05, size=(499_968,44))
 
 def is_duplicate_placement(i,j,k):
   if i == j: return True
@@ -52,29 +75,36 @@ def is_duplicate_placement(i,j,k):
   if j == k: return True
   return False
 
-pieces = [
-  chess.Piece.from_symbol('K'),
-  chess.Piece.from_symbol('R'),
-  chess.Piece.from_symbol('k')
-]
+def pieces():
+  return [
+    chess.Piece.from_symbol('K'),
+    chess.Piece.from_symbol('R'),
+    chess.Piece.from_symbol('k')
+  ]
 
-states = {}
+def state_map():
+  states = {}
+  count = 0
+  board = chess.Board(None)
+  
+  for i in range(64):
+    for j in range(64):
+      for k in range(64):
+        if is_duplicate_placement(i,j,k): continue
+  
+        board.set_piece_at(i, pieces()[0])
+        board.set_piece_at(j, pieces()[1])
+        board.set_piece_at(k, pieces()[2])
+  
+        board.turn = chess.WHITE
+        states[board_key(board)] = count
+        board.turn = chess.BLACK
+        states[board_key(board)] = count
 
-for i in range(64):
-  for j in range(64):
-    for k in range(64):
-      if is_duplicate_placement(i,j,k): continue
+        board.clear_board()
+        count += 1
+  return states
 
-      board = chess.Board(None)
-
-      board.set_piece_at(i, pieces[0])
-      board.set_piece_at(j, pieces[1])
-      board.set_piece_at(k, pieces[2])
-
-      fen_string = ''.join(board.fen().split(" ")[0:2])
-
-      states[fen_string] = generate_action_array(len(ACTIONS))
-
-import pickle
-f = open('randomized_state_action_table.bin', 'wb')
-pickle.dump(states, f)
+def serialize(name, data):
+  f = open(name, 'wb')
+  pickle.dump(data, f)
