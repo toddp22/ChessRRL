@@ -39,7 +39,7 @@ def get_immediate_reward(b):
   return r
 
 def get_valid_move(b, bk):
-  action_index = np.nanargmax(Q[bk,:] + np.random.randn(action_count)*(np.float64(2 * num_episodes) / np.float_64(i+1)))
+  action_index = np.nanargmax(Q[bk,:] + np.random.randn(action_count)*(np.float64(2 * num_episodes) / np.float64(i+1)))
   action = satg.ACTIONS[action_index]
   action_piece = action[0]
   action_direction = action[1]
