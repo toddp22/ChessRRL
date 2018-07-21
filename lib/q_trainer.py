@@ -10,7 +10,7 @@ action_count = len(Q[0])
 
 learning_rate = 0.8
 y = 0.95
-num_episodes = 2000
+num_episodes = 5_000_000
 
 reward_list = []
 
@@ -39,7 +39,7 @@ def get_immediate_reward(b):
   return r
 
 def get_valid_move(b, bk):
-  action_index = np.nanargmax(Q[bk,:] + np.random.randn(action_count)*(10000./(i+1)))
+  action_index = np.nanargmax(Q[bk,:] + np.random.randn(action_count)*(np.float64(2 * num_episodes) / np.float_64(i+1)))
   action = satg.ACTIONS[action_index]
   action_piece = action[0]
   action_direction = action[1]
@@ -85,3 +85,5 @@ for i in range(num_episodes):
       break
   reward_list.append(reward_all)
   print("Score over time: " +  str(sum(reward_list)/num_episodes))
+
+satg.serialize("state_action_table.bin", Q)
