@@ -4,6 +4,8 @@ import state_action_table_generator as satg
 from board_operations import generators
 from board_operations import serializers
 
+np.set_printoptions(formatter={'float': '{: 0.3f}'.format})
+
 Q = satg.state_action_table()
 q_lookup = satg.state_map()
 action_count = len(Q[0])
@@ -13,6 +15,22 @@ gamma = 0.95 # discount factor
 num_episodes = 5_000_000
 
 reward_list = []
+
+def get_reward(board, state, action, new_state, immediate_reward):
+  if immediate_reward != 0: return immediate_reward
+  opponant_action_index = np.nanargmin(Q[new_state,:])
+  opponant_move = generate_move_from_action(board, opponant_action_index)
+  if opponant_move == None:
+    invalid_action(new_state, opponant_action_index)
+    return get_reward(board, state, action, new_state, immediate_reward)
+
+  board.push(move)
+  resulting_state = q_lookup[satg.board_key(board)]
+  board.pop()
+
+  learned = gamma * np.nanmax(Q[resulting_state,:]) # + immediate_reward
+
+  return (1 - alpha) * Q[state,action] + alpha * learned
 
 def print_status_update(board, immediate_reward, before_reward, state, action, old_state):
   last_board_unicode = serializers.unicode(board)
@@ -38,27 +56,31 @@ def get_immediate_reward(board):
     r = -100
   return r
 
-def get_valid_move(board, state):
-  action_index = np.nanargmax(Q[state,:] + np.random.randn(action_count)*(np.float64(2 * num_episodes) / np.float64(i+1)))
+def generate_move_from_action(board, action_index):
   action = satg.ACTIONS[action_index]
   action_piece = action[0]
   action_direction = action[1]
-  action_square = list(board.pieces(action_piece.piece_type, action_piece.color))[0]
+  square_set = list(board.pieces(action_piece.piece_type, action_piece.color))
+  if len(square_set) == 0: return None # piece doesn't exist
+  action_square = square_set[0]
   result_square = action_square + action_direction
 
-  if result_square >= 64 or result_square < 0:
-    invalid_action(state, action_index)
-    return get_valid_move(board, state)
-
+  if result_square >= 64 or result_square < 0: return None # move not on board
   move = chess.Move(action_square, result_square)
+  if move not in board.generate_legal_moves(): return None # move not legal
 
-  if move not in board.generate_legal_moves():
+  return move
+
+def get_valid_move(board, state):
+  action_index = np.nanargmax(Q[state,:] + np.random.randn(action_count)*(np.float64(2 * num_episodes) / np.float64(i+1)))
+  move = generate_move_from_action(board, action_index)
+
+  if move == None:
     invalid_action(state, action_index)
     return get_valid_move(board, state)
 
   return move, action_index
 
-np.set_printoptions(formatter={'float': '{: 0.3f}'.format})
 print("Begin!")
 for i in range(num_episodes):
   board = generators.random_krk_board()
@@ -76,7 +98,7 @@ for i in range(num_episodes):
     new_state = q_lookup[satg.board_key(board)]
 
     before_reward = Q[state,action]
-    Q[state,action] = Q[state,action] + alpha * (immediate_reward + gamma * np.nanmax(Q[new_state,:]) - Q[state,action])
+    Q[state,action] = get_reward(board,state,action,new_state,immediate_reward)
 
     reward_all += immediate_reward
     state = new_state
