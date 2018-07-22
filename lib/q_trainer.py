@@ -108,6 +108,7 @@ for i in range(num_episodes):
     reward_all += immediate_reward
     state = new_state
     if is_destination:
+      Q[state,:] = -reward # should be an impossible state since the game is over, but helps with training
       print_status_update(board, immediate_reward, before_reward, reward, old_state, action)
       break
   reward_list.append(reward_all)
