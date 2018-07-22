@@ -8,8 +8,8 @@ Q = satg.state_action_table()
 q_lookup = satg.state_map()
 action_count = len(Q[0])
 
-learning_rate = 0.8
-y = 0.95
+alpha = 0.8  # learning rate
+gamma = 0.95 # discount factor
 num_episodes = 5_000_000
 
 reward_list = []
@@ -76,7 +76,7 @@ for i in range(num_episodes):
     new_board_key = q_lookup[satg.board_key(b)]
 
     before_reward = Q[board_key,a]
-    Q[board_key,a] = Q[board_key,a] + learning_rate * (immediate_reward + y * np.nanmax(Q[new_board_key,:]) - Q[board_key,a])
+    Q[board_key,a] = Q[board_key,a] + alpha * (immediate_reward + gamma * np.nanmax(Q[new_board_key,:]) - Q[board_key,a])
 
     reward_all += immediate_reward
     board_key = new_board_key
