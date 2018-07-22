@@ -17,4 +17,5 @@ def random_krk_board():
       placement = secure_random.randrange(0,64)
 
     board.set_piece_at(chess.SQUARES_180[placement], piece)
+  board.turn = secure_random.getrandbits(1)
   return board
