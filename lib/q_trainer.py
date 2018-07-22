@@ -14,19 +14,19 @@ num_episodes = 5_000_000
 
 reward_list = []
 
-def print_status_update(b, immediate_reward, before_reward, board_key, a, old_board_key):
+def print_status_update(b, immediate_reward, before_reward, state, a, old_state):
   last_board_unicode = serializers.unicode(b)
   b.pop()
   penultimate_board_unicode = serializers.unicode(b)
   print(penultimate_board_unicode)
   print(last_board_unicode)
   print("immediate_reward: " + str(immediate_reward))
-  print("reward: " + str(before_reward) + " => " + str(Q[board_key,a]))
-  print(Q[old_board_key,:])
+  print("reward: " + str(before_reward) + " => " + str(Q[state,a]))
+  print(Q[old_state,:])
   print("reached destination!")
 
-def invalid_action(board_key, action_index):
-  Q[board_key, action_index] = np.nan
+def invalid_action(state, action_index):
+  Q[state, action_index] = np.nan
 
 def get_immediate_reward(b):
   r = 0
@@ -64,24 +64,24 @@ for i in range(num_episodes):
   b = generators.random_krk_board()
   reward_all = 0
   is_destination = False
-  board_key = q_lookup[satg.board_key(b)]
+  state = q_lookup[satg.board_key(b)]
   print("----------\nnew game\n----------")
   for j in range(1000):
-    m,a = get_valid_move(b, board_key)
+    m,a = get_valid_move(b, state)
     b.push(m)
     immediate_reward = get_immediate_reward(b)
     is_destination = immediate_reward != 0
 
-    old_board_key = board_key
-    new_board_key = q_lookup[satg.board_key(b)]
+    old_state = state
+    new_state = q_lookup[satg.board_key(b)]
 
-    before_reward = Q[board_key,a]
-    Q[board_key,a] = Q[board_key,a] + alpha * (immediate_reward + gamma * np.nanmax(Q[new_board_key,:]) - Q[board_key,a])
+    before_reward = Q[state,a]
+    Q[state,a] = Q[state,a] + alpha * (immediate_reward + gamma * np.nanmax(Q[new_state,:]) - Q[state,a])
 
     reward_all += immediate_reward
-    board_key = new_board_key
+    state = new_state
     if is_destination:
-      print_status_update(b, immediate_reward, before_reward, board_key, a, old_board_key)
+      print_status_update(b, immediate_reward, before_reward, state, a, old_state)
       break
   reward_list.append(reward_all)
   print("Score over time: " +  str(sum(reward_list)/num_episodes))
