@@ -112,5 +112,6 @@ for i in range(num_episodes):
       break
   reward_list.append(reward_all)
   print("Score over time: " +  str(sum(reward_list)/num_episodes))
+  print("(" + str(i) + "/" + str(num_episodes) + ")")
 
 satg.serialize("state_action_table.bin", Q)
