@@ -12,7 +12,7 @@ action_count = len(Q[0])
 
 alpha = 0.8  # learning rate
 gamma = 0.95 # discount factor
-num_episodes = 5_000_000
+num_episodes = 2_500_000
 
 reward_list = []
 
