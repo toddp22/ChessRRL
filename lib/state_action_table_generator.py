@@ -67,7 +67,8 @@ def board_key(b):
   )
 
 def state_action_table():
-  return np.random.uniform(low=-0.05, high=0.05, size=(524_544, 44))
+  return np.zeros((524_544, 44))
+  # return np.random.uniform(low=-0.05, high=0.05, size=(524_544, 44))
 
 def is_duplicate_placement(i,j,k):
   if i == j: return True
