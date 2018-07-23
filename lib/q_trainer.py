@@ -77,7 +77,16 @@ def generate_move_from_action(board, action_index):
   return move
 
 def get_valid_move(board, state):
-  action_index = np.nanargmax(Q[state,:] + np.random.randn(action_count)*(np.float64(2 * num_episodes) / np.float64(i+1)))
+  try:
+    action_index = np.nanargmax(Q[state,:] + np.random.randn(action_count)*(np.float64(2 * num_episodes) / np.float64(i+1)))
+  except:
+    print("EXCEPTION: num_moves: " + str(len(board.move_stack)))
+    print("white's move" if board.turn == chess.WHITE else "black's move")
+    print(serializers.unicode(board))
+    for _ in len(board.move_stack):
+      board.pop()
+      print(serializers.unicode(board))
+      raise
   move = generate_move_from_action(board, action_index)
 
   if move == None:
