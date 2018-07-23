@@ -19,7 +19,7 @@ def random_krk_board():
     board.set_piece_at(chess.SQUARES_180[placement], piece)
   board.turn = secure_random.getrandbits(1)
 
-  if board.is_checkmate():
+  if board.is_checkmate() or board.is_stalemate():
     return random_krk_board()
 
   return board
