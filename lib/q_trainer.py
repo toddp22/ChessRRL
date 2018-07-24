@@ -8,7 +8,8 @@ from board_operations import serializers
 np.set_printoptions(formatter={'float': '{: 0.3f}'.format})
 secure_random = random.SystemRandom()
 
-Q = satg.state_action_table()
+# Q = satg.state_action_table()
+Q = satg.from_file("state_action_table.bin")
 q_lookup = satg.state_map()
 action_count = len(Q[0])
 results = np.zeros(100, dtype=np.int)
