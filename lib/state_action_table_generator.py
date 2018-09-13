@@ -67,7 +67,12 @@ def board_key(b):
   )
 
 def state_action_table():
-  return np.zeros((524_544, 44))
+  try:
+    file = open('state_action_table.bin', 'rb')
+    return pickle.load(file)
+  except FileNotFoundError:
+    print("\n\nFALLING BACK ON EMPTY STATE ACTION TABLE\n\n")
+    return np.zeros((524_544, 44))
   # return np.random.uniform(low=-0.05, high=0.05, size=(524_544, 44))
 
 def is_duplicate_placement(i,j,k):

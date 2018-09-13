@@ -12,7 +12,7 @@ action_count = len(Q[0])
 
 alpha = 0.8  # learning rate
 gamma = 0.95 # discount factor
-num_episodes = 2_500_000
+num_episodes = 50_000_000
 
 reward_list = []
 
@@ -33,16 +33,17 @@ def get_reward(board, state, action, new_state, immediate_reward):
   return (1 - alpha) * Q[state,action] + alpha * learned
 
 def print_status_update(board, immediate_reward, before_reward, reward, old_state, action):
-  last_board_unicode = serializers.unicode(board)
-  board.pop()
-  penultimate_board_unicode = serializers.unicode(board)
-  print(penultimate_board_unicode)
-  print(last_board_unicode)
-  print("winner: " + ("black" if board.turn == chess.BLACK else "white"))
-  print("immediate_reward: " + str(immediate_reward))
-  print("reward: (" + str(reward) + ") " + str(before_reward) + " => " + str(Q[old_state,action]))
-  print(Q[old_state,:])
-  print("reached destination!")
+  # last_board_unicode = serializers.unicode(board)
+  # board.pop()
+  # penultimate_board_unicode = serializers.unicode(board)
+  # print(penultimate_board_unicode)
+  # print(last_board_unicode)
+  # print("winner: " + ("black" if board.turn == chess.BLACK else "white"))
+  print("winner: " + ("white" if board.turn == chess.BLACK else "black"))
+  # print("immediate_reward: " + str(immediate_reward))
+  # print("reward: (" + str(reward) + ") " + str(before_reward) + " => " + str(Q[old_state,action]))
+  # print(Q[old_state,:])
+  # print("reached destination!")
 
 def invalid_action(state, action_index):
   Q[state, action_index] = np.nan
@@ -121,7 +122,7 @@ for i in range(num_episodes):
       print_status_update(board, immediate_reward, before_reward, reward, old_state, action)
       break
   reward_list.append(reward_all)
-  print("Score over time: " +  str(sum(reward_list)/num_episodes))
+  # print("Score over time: " +  str(sum(reward_list)/num_episodes))
   print("(" + str(i) + "/" + str(num_episodes) + ")")
-
-satg.serialize("state_action_table.bin", Q)
+  if ((1+i) % 100000 == 0):
+    satg.serialize("state_action_table_" + str(i) + ".bin", Q)
