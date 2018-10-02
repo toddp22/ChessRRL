@@ -1,3 +1,4 @@
+import random
 import chess
 import numpy as np
 import state_action_table_generator as satg
@@ -5,6 +6,7 @@ from board_operations import generators
 from board_operations import serializers
 
 np.set_printoptions(formatter={'float': '{: 0.3f}'.format})
+secure_random = random.SystemRandom()
 
 Q = satg.state_action_table()
 q_lookup = satg.state_map()
@@ -13,18 +15,35 @@ action_count = len(Q[0])
 alpha = 0.8  # learning rate
 gamma = 0.95 # discount factor
 num_episodes = 50_000_000
+probability_constant = 1
+#
+# Probability Equation (page 379 Machine Learning book)
+#
+# P(a_i|s) = (k^(Q(s,a_i)))/(sum_j(k^(Q(s,a_j))))
+# where
+# k = probability_constant
+# Q = Q
 
 reward_list = []
 
 def get_reward(board, state, action, new_state, immediate_reward):
   if immediate_reward != 0: return immediate_reward
-  opponant_action_index = np.nanargmax(Q[new_state,:])
+  try:
+    opponant_action_index = np.nanargmax(Q[new_state,:])
+  except:
+    print("EXCEPTION: num_moves: " + str(len(board.move_stack)))
+    print("white's move" if board.turn == chess.WHITE else "black's move")
+    print(serializers.unicode(board))
+    for _ in len(board.move_stack):
+      board.pop()
+      print(serializers.unicode(board))
+    raise
   opponant_move = generate_move_from_action(board, opponant_action_index)
   if opponant_move == None:
     invalid_action(new_state, opponant_action_index)
     return get_reward(board, state, action, new_state, immediate_reward)
 
-  board.push(move)
+  board.push(opponant_move)
   resulting_state = q_lookup[satg.board_key(board)]
   board.pop()
 
@@ -77,9 +96,32 @@ def generate_move_from_action(board, action_index):
 
   return move
 
-def get_valid_move(board, state):
+def probability_choice(probabilities):
+  total_prob = sum(probabilities)
+  chosen = secure_random.uniform(0, total_prob)
+  cumulative = 0
+  for index, probability in enumerate(probabilities):
+    cumulative += probability
+    if cumulative > chosen:
+      return index
+  raise Exception("probability_choice failed")
+
+def get_valid_move(board, state, i):
+  k_raised_by_a = lambda a: 0 if np.isnan(a) else probability_constant ** a
+  array = Q[state,:]
+  minimum = np.min(array)
+  if minimum < 0:
+    array = array - minimum
+
+  numerators = np.array(list(map(k_raised_by_a, array)))
+  denominator = sum(map(k_raised_by_a, array))
+  probabilities = numerators / denominator
+
   try:
-    action_index = np.nanargmax(Q[state,:] + np.random.randn(action_count)*(np.float64(2 * num_episodes) / np.float64(i+1)))
+    # bstate = q_lookup[satg.board_key(board)]
+    # if len(Q[bstate,:][np.logical_not(np.isnan(Q[bstate,:]))]) == 0: return None
+    # action_index = np.nanargmax(Q[bstate,:] + np.random.randn(action_count)*(np.float64(2 * num_episodes) / np.float64(i+1)))
+    action_index = probability_choice(probabilities)
   except:
     print("EXCEPTION: num_moves: " + str(len(board.move_stack)))
     print("white's move" if board.turn == chess.WHITE else "black's move")
@@ -92,37 +134,40 @@ def get_valid_move(board, state):
 
   if move == None:
     invalid_action(state, action_index)
-    return get_valid_move(board, state)
+    return get_valid_move(board, state, i)
 
   return move, action_index
 
-print("Begin!")
-for i in range(num_episodes):
-  board = generators.random_krk_board()
-  reward_all = 0
-  is_destination = False
-  state = q_lookup[satg.board_key(board)]
-  for j in range(1000):
-    move, action = get_valid_move(board, state)
-    board.push(move)
-    immediate_reward = get_immediate_reward(board)
-    is_destination = immediate_reward != 0
+def start():
+  print("Begin!")
+  for i in range(num_episodes):
+    board = generators.random_krk_board()
+    reward_all = 0
+    is_destination = False
+    state = q_lookup[satg.board_key(board)]
+    for j in range(1000):
+      move, action = get_valid_move(board, state, i)
+      board.push(move)
+      immediate_reward = get_immediate_reward(board)
+      is_destination = immediate_reward != 0
+  
+      old_state = state
+      new_state = q_lookup[satg.board_key(board)]
+  
+      before_reward = Q[state,action]
+      reward = get_reward(board,state,action,new_state,immediate_reward)
+      Q[state,action] = reward
+  
+      reward_all += immediate_reward
+      state = new_state
+      if is_destination:
+        Q[state,:] = -reward # should be an impossible state since the game is over, but helps with training
+        print_status_update(board, immediate_reward, before_reward, reward, old_state, action)
+        break
+    reward_list.append(reward_all)
+    # print("Score over time: " +  str(sum(reward_list)/num_episodes))
+    print("(" + str(i) + "/" + str(num_episodes) + ")")
+    if ((1+i) % 100000 == 0):
+      satg.serialize("state_action_table_" + str(i) + ".bin", Q)
 
-    old_state = state
-    new_state = q_lookup[satg.board_key(board)]
-
-    before_reward = Q[state,action]
-    reward = get_reward(board,state,action,new_state,immediate_reward)
-    Q[state,action] = reward
-
-    reward_all += immediate_reward
-    state = new_state
-    if is_destination:
-      Q[state,:] = -reward # should be an impossible state since the game is over, but helps with training
-      print_status_update(board, immediate_reward, before_reward, reward, old_state, action)
-      break
-  reward_list.append(reward_all)
-  # print("Score over time: " +  str(sum(reward_list)/num_episodes))
-  print("(" + str(i) + "/" + str(num_episodes) + ")")
-  if ((1+i) % 100000 == 0):
-    satg.serialize("state_action_table_" + str(i) + ".bin", Q)
+start()
