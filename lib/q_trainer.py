@@ -14,6 +14,7 @@ action_count = len(Q[0])
 results = np.zeros(100, dtype=np.int)
 winning_boards = []
 
+board_logging_enabled = False
 alpha = 0.8  # learning rate
 gamma = 0.95 # discount factor
 num_episodes = 10_000_000
@@ -136,7 +137,7 @@ def get_valid_move(board, state, i):
 
 def upgrade_probability_constant():
   global probability_constant
-  probability_constant += 0.1
+  probability_constant += 0.01
   print("upgrading probability_constant to " + str(probability_constant))
 
 def start():
@@ -186,7 +187,8 @@ def start():
       if total_wins_last_100 == 0:
         print("No wins in the past 100 games.")
       else:
-        for b in winning_boards: print(serializers.unicode(b))
+        if board_logging_enabled:
+          for b in winning_boards: print(serializers.unicode(b))
         white_wins_last_100 = 100 * result.get(1, 0)/total_wins_last_100
         black_wins_last_100 = 100 * result.get(2, 0)/total_wins_last_100
         print("White wins: " + str(white_wins_last_100) + "% || Black wins: " + str(black_wins_last_100) + "% || Total wins: " + str(total_wins_last_100))
