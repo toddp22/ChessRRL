@@ -14,10 +14,13 @@ action_count = len(Q[0])
 results = np.zeros(100, dtype=np.int)
 winning_boards = []
 
+board_logging_enabled = False
 alpha = 0.8  # learning rate
 gamma = 0.95 # discount factor
-num_episodes = 50_000_000
-probability_constant = 1.1
+is_4x4_game = True
+num_episodes = 10_000_000
+probability_constant = 1.0
+use_book_exploration_policy = False
 #
 # Probability Equation (page 379 Machine Learning book)
 #
@@ -31,13 +34,14 @@ def get_reward(board, state, action, new_state, immediate_reward):
   try:
     opponant_action_index = np.nanargmax(Q[new_state,:])
   except:
-    print("EXCEPTION: num_moves: " + str(len(board.move_stack)))
+    print("EXCEPTION: opponant has no legal moves. num_moves: " + str(len(board.move_stack)))
     print("white's move" if board.turn == chess.WHITE else "black's move")
     print(serializers.unicode(board))
     for _ in len(board.move_stack):
       board.pop()
       print(serializers.unicode(board))
     raise
+
   opponant_move = generate_move_from_action(board, opponant_action_index)
   if opponant_move == None:
     invalid_action(new_state, opponant_action_index)
@@ -47,14 +51,14 @@ def get_reward(board, state, action, new_state, immediate_reward):
   resulting_state = q_lookup[satg.board_key(board)]
   board.pop()
 
-  learned = gamma * np.nanmax(Q[resulting_state,:]) # + immediate_reward
+  learned = gamma * np.nanmax(Q[resulting_state,:])
 
   return (1 - alpha) * Q[state,action] + alpha * learned
 
 def invalid_action(state, action_index):
   Q[state, action_index] = np.nan
 
-def get_immediate_reward(board):
+def get_immediate_reward(board, state, i):
   turn_multiplier = 1 if board.turn == chess.BLACK else -1
 
   r = 0
@@ -66,6 +70,14 @@ def get_immediate_reward(board):
     r = -100 # only two kings is an automatic stalemate
   if len(board.pieces(chess.KING, chess.BLACK)) == 0:
     r = 1 # we started with a bad board where black was already in check
+  if r == 0 and get_valid_move(board, state, i) == None:
+    # we're on a 4x4 board, so the python-chess board thinks we have
+    # valid moves left, but in reality, if the board were actually
+    # 4x4, then there wouldn't be any valid moves left
+    if board.is_check():
+      r = 100
+    else:
+      r = -100
   return r * turn_multiplier
 
 def generate_move_from_action(board, action_index):
@@ -78,6 +90,7 @@ def generate_move_from_action(board, action_index):
   result_square = action_square + action_direction
 
   if result_square >= 64 or result_square < 0: return None # move not on board
+  if is_4x4_game and not result_square in generators.VALID_4X4_POSITIONS: return None
   move = chess.Move(action_square, result_square)
   if move not in board.generate_legal_moves(): return None # move not legal
 
@@ -94,27 +107,30 @@ def probability_choice(probabilities):
   raise Exception("probability_choice failed")
 
 def get_valid_move(board, state, i):
-  k_raised_by_a = lambda a: 0 if np.isnan(a) else probability_constant ** a
-  array = Q[state,:]
-  minimum = np.min(array)
-  if minimum < 0:
-    array = array - minimum
-
-  numerators = list(map(k_raised_by_a, array))
-
   try:
-    # bstate = q_lookup[satg.board_key(board)]
-    # if len(Q[bstate,:][np.logical_not(np.isnan(Q[bstate,:]))]) == 0: return None
-    # action_index = np.nanargmax(Q[bstate,:] + np.random.randn(action_count)*(np.float64(2 * num_episodes) / np.float64(i+1)))
-    action_index = probability_choice(numerators)
+    if use_book_exploration_policy:
+      k_raised_by_a = lambda a: 0 if np.isnan(a) else probability_constant ** a
+      array = Q[state,:]
+      minimum = np.min(array)
+      if minimum < 0:
+        array = array - minimum
+
+      numerators = list(map(k_raised_by_a, array))
+
+      if len(Q[state,:][np.logical_not(np.isnan(Q[state,:]))]) == 0: return None
+      action_index = probability_choice(numerators)
+    else:
+      if len(Q[state,:][np.logical_not(np.isnan(Q[state,:]))]) == 0: return None
+      action_index = np.nanargmax(Q[state,:] + np.random.randn(action_count)*(np.float64(2 * num_episodes) / np.float64(i+1)))
   except:
     print("EXCEPTION: num_moves: " + str(len(board.move_stack)))
+    print("iteration: " + str(i))
     print("white's move" if board.turn == chess.WHITE else "black's move")
     print(serializers.unicode(board))
-    for _ in len(board.move_stack):
+    for _ in range(len(board.move_stack)):
       board.pop()
       print(serializers.unicode(board))
-      raise
+    raise
   move = generate_move_from_action(board, action_index)
 
   if move == None:
@@ -123,18 +139,30 @@ def get_valid_move(board, state, i):
 
   return move, action_index
 
+def upgrade_probability_constant():
+  global probability_constant
+  probability_constant += 0.01
+  print("upgrading probability_constant to " + str(probability_constant))
+
 def start():
   print("Begin!")
   for i in range(num_episodes):
-    board = generators.random_krk_board()
-    is_destination = False
+    board = generators.random_krk_board(is_4x4_game)
     state = q_lookup[satg.board_key(board)]
+    is_destination = get_immediate_reward(board, state, i) != 0
+    if is_destination: continue
     winner = 0
     for j in range(1000):
       move, action = get_valid_move(board, state, i)
       board.push(move)
-      immediate_reward = get_immediate_reward(board)
-      if immediate_reward != 0:
+
+      old_state = state
+      state = q_lookup[satg.board_key(board)]
+
+      immediate_reward = get_immediate_reward(board, state, i)
+      is_destination = immediate_reward != 0
+
+      if is_destination:
         winning_boards.append(board.copy())
         if board.turn == chess.BLACK:
           if immediate_reward > 0: winner = chess.WHITE
@@ -142,10 +170,6 @@ def start():
         else:
           if immediate_reward > 0: winner = chess.BLACK
           else: winner = chess.WHITE
-      is_destination = immediate_reward != 0
-  
-      old_state = state
-      state = q_lookup[satg.board_key(board)]
   
       reward = get_reward(board,old_state,action,state,immediate_reward)
       Q[old_state,action] = reward
@@ -163,18 +187,18 @@ def start():
     if i % 100 == 0:
       unique, counts = np.unique(results, return_counts=True)
       result = dict(zip(unique, counts))
-      total_wins = result.get(1, 0) + result.get(2, 0)
-      if total_wins == 0:
+      total_wins_last_100 = result.get(1, 0) + result.get(2, 0)
+      if total_wins_last_100 == 0:
         print("No wins in the past 100 games.")
       else:
-        print(
-          "White wins: " + str(100 * result.get(1, 0)/total_wins) + "% || Black wins: " + str(100 * result.get(2, 0)/total_wins) + "% || Total wins: " + str(total_wins)
-        )
+        if board_logging_enabled:
+          for b in winning_boards: print(serializers.unicode(b))
+        white_wins_last_100 = 100 * result.get(1, 0)/total_wins_last_100
+        black_wins_last_100 = 100 * result.get(2, 0)/total_wins_last_100
+        print("White wins: " + str(white_wins_last_100) + "% || Black wins: " + str(black_wins_last_100) + "% || Total wins: " + str(total_wins_last_100))
         print("(" + str(i) + "/" + str(num_episodes) + ")")
-        for b in winning_boards:
-          print(serializers.unicode(b))
         winning_boards.clear()
-    if ((1+i) % 100000 == 0):
-      satg.serialize("a_state_action_table_" + str(i) + ".bin", Q)
+    if (1+i) % 10000 == 0: upgrade_probability_constant()
+    if ((1+i) % 100000 == 0): satg.serialize("state_action_table_" + str(i) + ".bin", Q)
 
 start()
