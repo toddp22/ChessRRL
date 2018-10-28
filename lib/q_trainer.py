@@ -17,8 +17,10 @@ winning_boards = []
 board_logging_enabled = False
 alpha = 0.8  # learning rate
 gamma = 0.95 # discount factor
+is_4x4_game = True
 num_episodes = 10_000_000
 probability_constant = 1.0
+use_book_exploration_policy = False
 #
 # Probability Equation (page 379 Machine Learning book)
 #
@@ -26,7 +28,6 @@ probability_constant = 1.0
 # where
 # k = probability_constant
 # Q = Q
-is_4x4_game = True
 
 def get_reward(board, state, action, new_state, immediate_reward):
   if immediate_reward != 0: return immediate_reward
@@ -50,7 +51,7 @@ def get_reward(board, state, action, new_state, immediate_reward):
   resulting_state = q_lookup[satg.board_key(board)]
   board.pop()
 
-  learned = gamma * np.nanmax(Q[resulting_state,:]) # + immediate_reward
+  learned = gamma * np.nanmax(Q[resulting_state,:])
 
   return (1 - alpha) * Q[state,action] + alpha * learned
 
@@ -106,18 +107,21 @@ def probability_choice(probabilities):
   raise Exception("probability_choice failed")
 
 def get_valid_move(board, state, i):
-  k_raised_by_a = lambda a: 0 if np.isnan(a) else probability_constant ** a
-  array = Q[state,:]
-  minimum = np.min(array)
-  if minimum < 0:
-    array = array - minimum
-
-  numerators = list(map(k_raised_by_a, array))
-
   try:
-    if len(Q[state,:][np.logical_not(np.isnan(Q[state,:]))]) == 0: return None
-    # action_index = np.nanargmax(Q[state,:] + np.random.randn(action_count)*(np.float64(2 * num_episodes) / np.float64(i+1)))
-    action_index = probability_choice(numerators)
+    if use_book_exploration_policy:
+      k_raised_by_a = lambda a: 0 if np.isnan(a) else probability_constant ** a
+      array = Q[state,:]
+      minimum = np.min(array)
+      if minimum < 0:
+        array = array - minimum
+
+      numerators = list(map(k_raised_by_a, array))
+
+      if len(Q[state,:][np.logical_not(np.isnan(Q[state,:]))]) == 0: return None
+      action_index = probability_choice(numerators)
+    else:
+      if len(Q[state,:][np.logical_not(np.isnan(Q[state,:]))]) == 0: return None
+      action_index = np.nanargmax(Q[state,:] + np.random.randn(action_count)*(np.float64(2 * num_episodes) / np.float64(i+1)))
   except:
     print("EXCEPTION: num_moves: " + str(len(board.move_stack)))
     print("iteration: " + str(i))
@@ -195,6 +199,6 @@ def start():
         print("(" + str(i) + "/" + str(num_episodes) + ")")
         winning_boards.clear()
     if (1+i) % 10000 == 0: upgrade_probability_constant()
-    if ((1+i) % 100000 == 0): satg.serialize("a_state_action_table_" + str(i) + ".bin", Q)
+    if ((1+i) % 100000 == 0): satg.serialize("state_action_table_" + str(i) + ".bin", Q)
 
 start()
