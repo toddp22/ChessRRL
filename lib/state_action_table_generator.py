@@ -54,11 +54,7 @@ ACTIONS = (
 
 def board_key(b):
   return (
-    b.bishops,
     b.kings,
-    b.knights,
-    b.pawns,
-    b.queens,
     b.rooks,
     b.occupied,
     b.occupied_co[chess.BLACK],
