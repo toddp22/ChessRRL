@@ -7,7 +7,7 @@ from lib.board_operations import serializers
 from lib.agents import q_learning_agent as white
 from lib.agents import q_learning_agent as black
 
-board = generators.random_krk_board()
+board = generators.random_krk_board(True)
 
 print("New game!")
 print(serializers.unicode(board))
