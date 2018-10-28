@@ -11,11 +11,13 @@ secure_random = random.SystemRandom()
 Q = satg.state_action_table()
 q_lookup = satg.state_map()
 action_count = len(Q[0])
+results = np.zeros(100, dtype=np.int)
+winning_boards = []
 
 alpha = 0.8  # learning rate
 gamma = 0.95 # discount factor
 num_episodes = 50_000_000
-probability_constant = 1
+probability_constant = 1.1
 #
 # Probability Equation (page 379 Machine Learning book)
 #
@@ -23,8 +25,6 @@ probability_constant = 1
 # where
 # k = probability_constant
 # Q = Q
-
-reward_list = []
 
 def get_reward(board, state, action, new_state, immediate_reward):
   if immediate_reward != 0: return immediate_reward
@@ -50,19 +50,6 @@ def get_reward(board, state, action, new_state, immediate_reward):
   learned = gamma * np.nanmax(Q[resulting_state,:]) # + immediate_reward
 
   return (1 - alpha) * Q[state,action] + alpha * learned
-
-def print_status_update(board, immediate_reward, before_reward, reward, old_state, action):
-  # last_board_unicode = serializers.unicode(board)
-  # board.pop()
-  # penultimate_board_unicode = serializers.unicode(board)
-  # print(penultimate_board_unicode)
-  # print(last_board_unicode)
-  # print("winner: " + ("black" if board.turn == chess.BLACK else "white"))
-  print("winner: " + ("white" if board.turn == chess.BLACK else "black"))
-  # print("immediate_reward: " + str(immediate_reward))
-  # print("reward: (" + str(reward) + ") " + str(before_reward) + " => " + str(Q[old_state,action]))
-  # print(Q[old_state,:])
-  # print("reached destination!")
 
 def invalid_action(state, action_index):
   Q[state, action_index] = np.nan
@@ -113,15 +100,13 @@ def get_valid_move(board, state, i):
   if minimum < 0:
     array = array - minimum
 
-  numerators = np.array(list(map(k_raised_by_a, array)))
-  denominator = sum(map(k_raised_by_a, array))
-  probabilities = numerators / denominator
+  numerators = list(map(k_raised_by_a, array))
 
   try:
     # bstate = q_lookup[satg.board_key(board)]
     # if len(Q[bstate,:][np.logical_not(np.isnan(Q[bstate,:]))]) == 0: return None
     # action_index = np.nanargmax(Q[bstate,:] + np.random.randn(action_count)*(np.float64(2 * num_episodes) / np.float64(i+1)))
-    action_index = probability_choice(probabilities)
+    action_index = probability_choice(numerators)
   except:
     print("EXCEPTION: num_moves: " + str(len(board.move_stack)))
     print("white's move" if board.turn == chess.WHITE else "black's move")
@@ -142,32 +127,54 @@ def start():
   print("Begin!")
   for i in range(num_episodes):
     board = generators.random_krk_board()
-    reward_all = 0
     is_destination = False
     state = q_lookup[satg.board_key(board)]
+    winner = 0
     for j in range(1000):
       move, action = get_valid_move(board, state, i)
       board.push(move)
       immediate_reward = get_immediate_reward(board)
+      if immediate_reward != 0:
+        winning_boards.append(board.copy())
+        if board.turn == chess.BLACK:
+          if immediate_reward > 0: winner = chess.WHITE
+          else: winner = chess.BLACK
+        else:
+          if immediate_reward > 0: winner = chess.BLACK
+          else: winner = chess.WHITE
       is_destination = immediate_reward != 0
   
       old_state = state
-      new_state = q_lookup[satg.board_key(board)]
+      state = q_lookup[satg.board_key(board)]
   
-      before_reward = Q[state,action]
-      reward = get_reward(board,state,action,new_state,immediate_reward)
-      Q[state,action] = reward
+      reward = get_reward(board,old_state,action,state,immediate_reward)
+      Q[old_state,action] = reward
   
-      reward_all += immediate_reward
-      state = new_state
       if is_destination:
         Q[state,:] = -reward # should be an impossible state since the game is over, but helps with training
-        print_status_update(board, immediate_reward, before_reward, reward, old_state, action)
         break
-    reward_list.append(reward_all)
-    # print("Score over time: " +  str(sum(reward_list)/num_episodes))
-    print("(" + str(i) + "/" + str(num_episodes) + ")")
+    if is_destination:
+      if winner == chess.WHITE:
+        results[i % 100] = 1
+      else:
+        results[i % 100] = 2
+    else:
+      results[i % 100] = 0
+    if i % 100 == 0:
+      unique, counts = np.unique(results, return_counts=True)
+      result = dict(zip(unique, counts))
+      total_wins = result.get(1, 0) + result.get(2, 0)
+      if total_wins == 0:
+        print("No wins in the past 100 games.")
+      else:
+        print(
+          "White wins: " + str(100 * result.get(1, 0)/total_wins) + "% || Black wins: " + str(100 * result.get(2, 0)/total_wins) + "% || Total wins: " + str(total_wins)
+        )
+        print("(" + str(i) + "/" + str(num_episodes) + ")")
+        for b in winning_boards:
+          print(serializers.unicode(b))
+        winning_boards.clear()
     if ((1+i) % 100000 == 0):
-      satg.serialize("state_action_table_" + str(i) + ".bin", Q)
+      satg.serialize("a_state_action_table_" + str(i) + ".bin", Q)
 
 start()
