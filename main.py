@@ -4,11 +4,12 @@ import chess
 # custom modules
 from lib.board_operations import generators
 from lib.board_operations import serializers
-from lib.agents import minimax_agent as black
-from lib.agents import greedy_agent as white
+from lib.agents import q_learning_agent as white
+from lib.agents import q_learning_agent as black
 
-board = generators.normal_board()
+board = generators.random_krk_board(True)
 
+print("New game!")
 print(serializers.unicode(board))
 while (not board.is_game_over()):
   if board.turn == chess.WHITE:

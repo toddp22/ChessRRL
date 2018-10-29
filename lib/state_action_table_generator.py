@@ -143,3 +143,7 @@ def state_map():
 def serialize(name, data):
   f = open(name, 'wb')
   pickle.dump(data, f)
+
+def from_file(name):
+  f = open(name, 'rb')
+  return pickle.load(f)
