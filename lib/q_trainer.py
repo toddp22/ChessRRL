@@ -11,7 +11,6 @@ secure_random = random.SystemRandom()
 Q = satg.state_action_table()
 q_lookup = satg.state_map()
 action_count = len(Q[0])
-results = np.zeros(100, dtype=np.int)
 winning_boards = []
 
 board_logging_enabled = False
@@ -20,7 +19,7 @@ gamma = 0.95 # discount factor
 is_4x4_game = True
 num_episodes = 10_000_000
 probability_constant = 1.0
-use_book_exploration_policy = False
+use_book_exploration_policy = True
 #
 # Probability Equation (page 379 Machine Learning book)
 #
@@ -37,7 +36,7 @@ def get_reward(board, state, action, new_state, immediate_reward):
     print("EXCEPTION: opponant has no legal moves. num_moves: " + str(len(board.move_stack)))
     print("white's move" if board.turn == chess.WHITE else "black's move")
     print(serializers.unicode(board))
-    for _ in len(board.move_stack):
+    for _ in range(len(board.move_stack)):
       board.pop()
       print(serializers.unicode(board))
     raise
@@ -145,14 +144,17 @@ def upgrade_probability_constant():
   print("upgrading probability_constant to " + str(probability_constant))
 
 def start():
+  total_black_wins = 0
+  false_black_wins_last_100 = 0
+  results = np.zeros(100, dtype=np.int)
+  black_wins = []
   print("Begin!")
   for i in range(num_episodes):
     board = generators.random_krk_board(is_4x4_game)
     state = q_lookup[satg.board_key(board)]
     is_destination = get_immediate_reward(board, state, i) != 0
-    if is_destination: continue
     winner = 0
-    for j in range(1000):
+    while(not is_destination):
       move, action = get_valid_move(board, state, i)
       board.push(move)
 
@@ -174,30 +176,56 @@ def start():
       reward = get_reward(board,old_state,action,state,immediate_reward)
       Q[old_state,action] = reward
   
-      if is_destination:
-        Q[state,:] = -reward # should be an impossible state since the game is over, but helps with training
-        break
-    if is_destination:
+      if is_destination: Q[state,:] = -reward # should be an impossible state since the game is over, but helps with training
+
+    if is_destination and len(board.move_stack) > 0:
       if winner == chess.WHITE:
         results[i % 100] = 1
       else:
         results[i % 100] = 2
+        black_wins.append(board.copy())
+        total_black_wins += 1
+        if len(board.move_stack) == 1 and board.turn == chess.WHITE:
+          total_black_wins -= 1
+          false_black_wins_last_100 += 1
     else:
       results[i % 100] = 0
+
     if i % 100 == 0:
       unique, counts = np.unique(results, return_counts=True)
       result = dict(zip(unique, counts))
-      total_wins_last_100 = result.get(1, 0) + result.get(2, 0)
+      white_wins_last_100 = result.get(1, 0)
+      black_wins_last_100 = result.get(2, 0)
+      total_wins_last_100 = white_wins_last_100 + black_wins_last_100
       if total_wins_last_100 == 0:
         print("No wins in the past 100 games.")
       else:
         if board_logging_enabled:
           for b in winning_boards: print(serializers.unicode(b))
-        white_wins_last_100 = 100 * result.get(1, 0)/total_wins_last_100
-        black_wins_last_100 = 100 * result.get(2, 0)/total_wins_last_100
-        print("White wins: " + str(white_wins_last_100) + "% || Black wins: " + str(black_wins_last_100) + "% || Total wins: " + str(total_wins_last_100))
+          print("~~~~~~~~~~~~BLACK WINS~~~~~~~~~~~~~")
+          for b in black_wins:
+            print("----------------------------------")
+            print("num moves: " + str(len(b.move_stack)))
+            print("turn: " + str(b.turn))
+            print(serializers.unicode(b))
+            for _ in range(len(b.move_stack)):
+              b.pop()
+              print(serializers.unicode(b))
+            print("(end)")
+        white_wins_percent = 100 * white_wins_last_100/total_wins_last_100
+        black_wins_percent = 100 * black_wins_last_100/total_wins_last_100
+        fixed_total = total_wins_last_100 - false_black_wins_last_100
+        fixed_white_percent = 100 * white_wins_last_100/fixed_total
+        fixed_black_percent = 100 * (black_wins_last_100 - false_black_wins_last_100)/fixed_total
+        print("White wins: " + str(white_wins_percent) + "% || Black wins: " + str(black_wins_percent) + "% || Total wins: " + str(total_wins_last_100))
+        print("White wins: " + str(white_wins_last_100) + " || Black wins: " + str(black_wins_last_100) + " || False black wins: " + str(false_black_wins_last_100))
+        print("fixed: White: " + str(fixed_white_percent) + "% || fixed black: " + str(fixed_black_percent) + "% || fixed total: " + str(fixed_total))
+        print("TOTAL BLACK WINS: " + str(total_black_wins) + " (" + str(total_black_wins / num_episodes) + "%)")
         print("(" + str(i) + "/" + str(num_episodes) + ")")
-        winning_boards.clear()
+        if fixed_white_percent > 100.0: raise Exception("White fixed percent too high")
+      winning_boards.clear()
+      black_wins.clear()
+      false_black_wins_last_100 = 0
     if (1+i) % 10000 == 0: upgrade_probability_constant()
     if ((1+i) % 100000 == 0): satg.serialize("state_action_table_" + str(i) + ".bin", Q)
 
