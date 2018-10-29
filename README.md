@@ -1,6 +1,7 @@
 # ChessRRL
 
 install python-chess with `pip install python-chess` (or `pip3 install python-chess`)
+install binarytree with `pip install binarytree` (or `pip3 install binarytree`)
 
 run with `python main.py` (or `python3 main.py`)
 
